@@ -19,26 +19,29 @@ The project uses `uv` for dependency management, `pyproject.toml` as the single 
 ### 2.1. Project Structure
 
 ```
-src/
-└── awos_recruitment_mcp/
-    ├── __init__.py            # Package version
-    ├── __main__.py            # Entry point: python -m awos_recruitment_mcp
-    ├── py.typed               # PEP 561 type marker
-    ├── server.py              # FastMCP instance, health check route, tool imports
-    ├── config.py              # Config dataclass, loads from env vars / .env
-    ├── tools/
-    │   ├── __init__.py
-    │   └── search.py          # search_capabilities tool + mock data
-    └── models/
-        ├── __init__.py
-        └── capability.py      # CapabilityResult Pydantic model
-tests/
-├── conftest.py                # Shared fixtures (FastMCP in-process client)
-├── test_health.py             # Health check endpoint tests
-└── test_search_tool.py        # search_capabilities tool tests
-pyproject.toml                 # Project metadata, dependencies, scripts
-.env.example                   # Documented env var template
+server/
+├── src/
+│   └── awos_recruitment_mcp/
+│       ├── __init__.py            # Package version
+│       ├── __main__.py            # Entry point: python -m awos_recruitment_mcp
+│       ├── py.typed               # PEP 561 type marker
+│       ├── server.py              # FastMCP instance, health check route, tool imports
+│       ├── config.py              # Config dataclass, loads from env vars / .env
+│       ├── tools/
+│       │   ├── __init__.py
+│       │   └── search.py          # search_capabilities tool + mock data
+│       └── models/
+│           ├── __init__.py
+│           └── capability.py      # CapabilityResult Pydantic model
+├── tests/
+│   ├── conftest.py                # Shared fixtures (FastMCP in-process client)
+│   ├── test_health.py             # Health check endpoint tests
+│   └── test_search_tool.py        # search_capabilities tool tests
+├── pyproject.toml                 # Project metadata, dependencies, scripts
+└── .env.example                   # Documented env var template
 ```
+
+Note: All `uv` and `pytest` commands must be run from inside the `server/` directory.
 
 ### 2.2. Dependencies
 
