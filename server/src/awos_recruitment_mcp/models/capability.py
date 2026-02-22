@@ -13,12 +13,13 @@ class CapabilityResult(BaseModel):
     Attributes:
         name: Unique, human-readable identifier for the capability.
         description: Short prose description of what the capability does.
-        tags: Categorical labels used for filtering and ranking.
+        score: Similarity score (0--100) indicating how well the capability
+            matches the search query.
     """
 
     name: str
     description: str
-    tags: list[str]
+    score: int
 
 
 class RegistryCapability(BaseModel):

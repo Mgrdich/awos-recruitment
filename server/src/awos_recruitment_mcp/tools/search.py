@@ -7,62 +7,51 @@ This module registers the ``search_capabilities`` tool on the shared
 
 from __future__ import annotations
 
-from awos_recruitment_mcp.models.capability import CapabilityResult
-from awos_recruitment_mcp.server import mcp
+from fastmcp.server.context import Context
 
-# ---------------------------------------------------------------------------
-# Mock capability data (will be replaced by a real registry in later slices)
-# ---------------------------------------------------------------------------
+from awos_recruitment_mcp import search_index
+from awos_recruitment_mcp.server import config, mcp
 
-MOCK_CAPABILITIES: list[CapabilityResult] = [
-    CapabilityResult(
-        name="react-component-generator",
-        description=(
-            "Generates production-ready React components from natural-language "
-            "specifications, including TypeScript types and unit tests."
-        ),
-        tags=["react", "typescript", "frontend", "components"],
-    ),
-    CapabilityResult(
-        name="postgresql-migration-agent",
-        description=(
-            "Creates and validates PostgreSQL schema migrations with rollback "
-            "support, foreign-key checks, and index recommendations."
-        ),
-        tags=["postgresql", "database", "migrations", "sql"],
-    ),
-    CapabilityResult(
-        name="kubernetes-debugger",
-        description=(
-            "Diagnoses failing Kubernetes pods by inspecting events, logs, "
-            "and resource limits, then suggests targeted fixes."
-        ),
-        tags=["kubernetes", "devops", "debugging", "infrastructure"],
-    ),
-    CapabilityResult(
-        name="python-test-writer",
-        description=(
-            "Generates pytest test suites for Python modules, covering edge "
-            "cases, mocking strategies, and parametrised scenarios."
-        ),
-        tags=["python", "testing", "pytest", "automation"],
-    ),
-    CapabilityResult(
-        name="openapi-spec-linter",
-        description=(
-            "Validates OpenAPI 3.x specifications against best practices and "
-            "reports naming inconsistencies, missing examples, and security gaps."
-        ),
-        tags=["openapi", "api-design", "validation", "rest"],
-    ),
-]
+VALID_TYPES = {"skill", "agent", "tool"}
 
 
 @mcp.tool
-def search_capabilities(query: str) -> list[dict]:
+async def search_capabilities(
+    query: str,
+    type: str | None = None,
+    ctx: Context = None,  # type: ignore[assignment]
+) -> list[dict] | str:
     """Search the capability registry for skills, agents, and tools matching a query.
 
-    Returns a ranked list of capabilities. Each result includes a name,
-    description, and associated tags. Returns at most 10 results.
+    Returns a ranked list of capabilities.  Each result includes a name,
+    description, and similarity score (0--100).  Returns at most 10 results.
+
+    Args:
+        query: Natural-language search query describing the capability
+            you are looking for.
+        type: Optional filter to restrict results to a specific capability
+            type.  Must be one of ``"skill"``, ``"agent"``, or ``"tool"``.
     """
-    return [result.model_dump() for result in MOCK_CAPABILITIES[:10]]
+    # --- input validation ---------------------------------------------------
+    if not query or not query.strip():
+        return "Error: query must be a non-empty string."
+
+    if type is not None and type not in VALID_TYPES:
+        return (
+            f"Error: invalid type '{type}'. "
+            f"Must be one of: {', '.join(sorted(VALID_TYPES))}."
+        )
+
+    # --- retrieve collection from lifespan context --------------------------
+    collection = ctx.lifespan_context["collection"]
+
+    # --- perform semantic search --------------------------------------------
+    results = search_index.query(
+        collection=collection,
+        query_text=query.strip(),
+        n_results=10,
+        type_filter=type,
+        threshold=config.search_threshold,
+    )
+
+    return results
