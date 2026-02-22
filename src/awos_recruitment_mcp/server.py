@@ -6,6 +6,8 @@ or prompts.
 """
 
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from awos_recruitment_mcp.config import Config
 
@@ -20,3 +22,9 @@ mcp = FastMCP(
         "find capabilities matching a natural language query."
     ),
 )
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Return server health status and version."""
+    return JSONResponse({"status": "ok", "version": config.version}, status_code=200)

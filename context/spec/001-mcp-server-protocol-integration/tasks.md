@@ -6,11 +6,11 @@
 
 The smallest proof of life — a FastMCP server that starts, listens on Streamable HTTP, and completes the MCP handshake with a client.
 
-- [ ] Initialize the Python project with `uv init`, create `pyproject.toml` with dependencies (`fastmcp`, `python-dotenv`), and dev dependencies (`pytest`, `pytest-asyncio`). Create the `src/awos_recruitment_mcp/` package structure with `__init__.py` and `py.typed`. **[Agent: python-expert]**
-- [ ] Create `config.py` — frozen dataclass loading `AWOS_HOST` (default `0.0.0.0`), `AWOS_PORT` (default `8000`), `AWOS_VERSION` (default `0.1.0`) from environment variables with `.env` file support via `python-dotenv`. Create `.env.example` documenting the variables. **[Agent: python-expert]**
-- [ ] Create `server.py` — instantiate `FastMCP` with name `"AWOS Recruitment"`, version from config, and instructions string. Create `__main__.py` — calls `mcp.run(transport="http", host=config.host, port=config.port)`. **[Agent: python-expert]**
-- [ ] Verify: start the server with `python -m awos_recruitment_mcp`, confirm it starts without errors. Write a pytest integration test that connects an MCP `Client` to the server and completes the initialization handshake. Run `pytest` and confirm it passes. **[Agent: qa-tester]**
-- [ ] Git commit: "Add MCP server scaffold with Streamable HTTP transport"
+- [x] Initialize the Python project with `uv init`, create `pyproject.toml` with dependencies (`fastmcp`, `python-dotenv`), and dev dependencies (`pytest`, `pytest-asyncio`). Create the `src/awos_recruitment_mcp/` package structure with `__init__.py` and `py.typed`. **[Agent: python-expert]**
+- [x] Create `config.py` — frozen dataclass loading `AWOS_HOST` (default `0.0.0.0`), `AWOS_PORT` (default `8000`), `AWOS_VERSION` (default `0.1.0`) from environment variables with `.env` file support via `python-dotenv`. Create `.env.example` documenting the variables. **[Agent: python-expert]**
+- [x] Create `server.py` — instantiate `FastMCP` with name `"AWOS Recruitment"`, version from config, and instructions string. Create `__main__.py` — calls `mcp.run(transport="http", host=config.host, port=config.port)`. **[Agent: python-expert]**
+- [x] Verify: start the server with `python -m awos_recruitment_mcp`, confirm it starts without errors. Write a pytest integration test that connects an MCP `Client` to the server and completes the initialization handshake. Run `pytest` and confirm it passes. **[Agent: qa-tester]**
+- [x] Git commit: "Add MCP server scaffold with Streamable HTTP transport"
 
 ---
 
