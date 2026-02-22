@@ -4,10 +4,12 @@ version = "0.1.0"
 description = "MCP server providing AI coding assistants with a discovery engine for skills, agents, and tools."
 requires-python = ">=3.12"
 dependencies = [
+    "chromadb>=1.0.0",
     "fastmcp>=2.14.5",
     "python-dotenv>=1.0.0",
     "python-frontmatter>=1.1.0",
     "pyyaml>=6.0",
+    "sentence-transformers>=3.0.0",
 ]
 
 [dependency-groups]
