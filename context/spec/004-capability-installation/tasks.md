@@ -4,13 +4,13 @@
 
 _Smallest server-side value: POST a list of skill names, get a tar.gz back._
 
-- [ ] **Add `BundleRequest` Pydantic model** in `models/bundle.py` with `names: list[str]` field (1-20 items, each matching `^[a-z0-9-]{1,64}$`). Re-export in `models/__init__.py`. **[Agent: python-expert]**
-- [ ] **Add `resolve_skill_paths()` function** in `registry.py`. Accepts a list of names and a registry path, returns the found directory paths and not-found names by checking `skills/<name>/` exists. **[Agent: python-expert]**
-- [ ] **Add `POST /bundle/skills` route** in `server.py`. Parse request with `BundleRequest` (return 400 on validation failure), call `resolve_skill_paths`, build tar.gz in memory with `tarfile` (archive layout: `<name>/SKILL.md`, `<name>/references/*.md`), return as `Response(media_type="application/gzip")`. **[Agent: python-expert]**
-- [ ] **Add tests** in `tests/test_bundle.py` using `httpx.ASGITransport` pattern. Cases: valid request (verify tar.gz contents), partial matches (some found, some not), empty names list (400), names exceeding limit (400), all not-found (200 with empty archive). **[Agent: python-expert]**
-- [ ] **Verify:** Run `cd server && uv run pytest tests/test_bundle.py -v` — all tests pass. Start server, POST with curl, verify tar.gz extracts correctly. **[Agent: qa-tester]**
+- [x] **Add `BundleRequest` Pydantic model** in `models/bundle.py` with `names: list[str]` field (1-20 items, each matching `^[a-z0-9-]{1,64}$`). Re-export in `models/__init__.py`. **[Agent: python-expert]**
+- [x] **Add `resolve_skill_paths()` function** in `registry.py`. Accepts a list of names and a registry path, returns the found directory paths and not-found names by checking `skills/<name>/` exists. **[Agent: python-expert]**
+- [x] **Add `POST /bundle/skills` route** in `server.py`. Parse request with `BundleRequest` (return 400 on validation failure), call `resolve_skill_paths`, build tar.gz in memory with `tarfile` (archive layout: `<name>/SKILL.md`, `<name>/references/*.md`), return as `Response(media_type="application/gzip")`. **[Agent: python-expert]**
+- [x] **Add tests** in `tests/test_bundle.py` using `httpx.ASGITransport` pattern. Cases: valid request (verify tar.gz contents), partial matches (some found, some not), empty names list (400), names exceeding limit (400), all not-found (200 with empty archive). **[Agent: python-expert]**
+- [x] **Verify:** Run `cd server && uv run pytest tests/test_bundle.py -v` — all tests pass. Start server, POST with curl, verify tar.gz extracts correctly. **[Agent: qa-tester]**
 
-- [ ] **Git commit** **[Agent: general-purpose]**
+- [x] **Git commit** **[Agent: general-purpose]**
 
 ---
 
@@ -18,12 +18,12 @@ _Smallest server-side value: POST a list of skill names, get a tar.gz back._
 
 _Second server-side piece: POST a list of MCP tool names, get a tar.gz of YAML files._
 
-- [ ] **Add `resolve_mcp_paths()` function** in `registry.py`. Accepts a list of names and a registry path, returns found YAML file paths and not-found names by checking `mcp/<name>.yaml` exists. **[Agent: python-expert]**
-- [ ] **Add `POST /bundle/mcp` route** in `server.py`. Same pattern as `/bundle/skills` but calls `resolve_mcp_paths` and archives individual YAML files (layout: `<name>.yaml`). **[Agent: python-expert]**
-- [ ] **Add tests** in `tests/test_bundle.py`. Cases: valid request (verify tar.gz contains correct YAML files), partial matches, empty names (400), all not-found (200 with empty archive). **[Agent: python-expert]**
-- [ ] **Verify:** Run `cd server && uv run pytest tests/test_bundle.py -v` — all tests pass. Also run `uv run pytest -v` to confirm no regressions. **[Agent: qa-tester]**
+- [x] **Add `resolve_mcp_paths()` function** in `registry.py`. Accepts a list of names and a registry path, returns found YAML file paths and not-found names by checking `mcp/<name>.yaml` exists. **[Agent: python-expert]**
+- [x] **Add `POST /bundle/mcp` route** in `server.py`. Same pattern as `/bundle/skills` but calls `resolve_mcp_paths` and archives individual YAML files (layout: `<name>.yaml`). **[Agent: python-expert]**
+- [x] **Add tests** in `tests/test_bundle.py`. Cases: valid request (verify tar.gz contains correct YAML files), partial matches, empty names (400), all not-found (200 with empty archive). **[Agent: python-expert]**
+- [x] **Verify:** Run `cd server && uv run pytest tests/test_bundle.py -v` — all tests pass. Also run `uv run pytest -v` to confirm no regressions. **[Agent: qa-tester]**
 
-- [ ] **Git commit** **[Agent: general-purpose]**
+- [x] **Git commit** **[Agent: general-purpose]**
 
 ---
 
