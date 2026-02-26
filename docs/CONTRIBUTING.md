@@ -15,6 +15,8 @@ The registry contains three types of capabilities:
 
 See [Philosophy](PHILOSOPHY.md) for the reasoning behind this distinction.
 
+> **Before writing a skill**, read the official [Best Practices for Writing Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices). It covers structure, prompting techniques, and common pitfalls.
+
 ---
 
 ## Directory Structure
