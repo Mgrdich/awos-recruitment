@@ -41,6 +41,9 @@ All commands run from the **repository root** via `just`:
 | `just validate-registry --format json` | Validate with JSON output (for CI) |
 | `just build-cli` | Build the CLI (TypeScript → `cli/dist/`) |
 | `just test-cli` | Run CLI tests |
+| `just publish-cli` | Bump patch version and publish CLI to npm |
+| `just publish-cli minor` | Bump minor version and publish |
+| `just publish-cli major` | Bump major version and publish |
 
 ## Server Configuration
 
