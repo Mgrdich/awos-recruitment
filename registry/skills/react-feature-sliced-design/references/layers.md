@@ -15,12 +15,12 @@ shared     (lowest)   — Infrastructure code
 
 ## App (`src/app/`)
 
-**Purpose**: Composition root — providers, routing, global styles, entry point.
+**Purpose**: Composition root — providers, router, global styles, entry point.
 
 - Single entry point for the application
-- Wraps in providers (theme, auth, query client)
-- Defines route configuration
-- Not a "slice" — it's the shell that assembles everything
+- Wraps in providers (`<QueryClientProvider>`, `<ThemeProvider>`, `<AuthProvider>`, etc.)
+- Defines router configuration
+- **Divided directly into segments (no slices)** — it's the shell that assembles everything
 
 **Can Import**: all layers | **Cannot Import**: —
 
@@ -28,11 +28,11 @@ shared     (lowest)   — Infrastructure code
 
 ## Pages (`src/pages/`)
 
-**Purpose**: Route-level entry points that compose widgets, features, and entities into views.
+**Purpose**: Route-level components that compose widgets, features, and entities into views.
 
 - One page = one route
 - Orchestrates lower layers into a complete screen
-- Contains page-specific UI, hooks, state
+- Contains page-specific components, hooks, state
 
 **Can Import**: widgets, features, entities, shared | **Cannot Import**: app, other pages
 
@@ -44,7 +44,7 @@ shared     (lowest)   — Infrastructure code
 
 **Purpose**: Composite UI blocks that combine features and entities, reused across pages.
 
-- Self-contained UI sections with business meaning
+- Self-contained components with business meaning
 - Combine multiple entities and/or features
 - Should represent a meaningful unit, not just a visual grouping
 
@@ -61,7 +61,7 @@ shared     (lowest)   — Infrastructure code
 **Purpose**: User interactions — things a user *does* in the app.
 
 - Encapsulates a single user action or interaction flow
-- Contains UI + logic + API calls for that action
+- Contains components + hooks + API calls for that action
 - Examples: auth, search, comment, like, filter, share
 
 **Can Import**: entities, shared | **Cannot Import**: app, pages, widgets, other features
@@ -75,8 +75,8 @@ shared     (lowest)   — Infrastructure code
 **Purpose**: Business domain objects with UI, data access, and logic.
 
 - Core concepts: User, Customer, Project, Order
-- Domain-specific UI components (cards, avatars, badges)
-- API hooks for CRUD operations
+- Domain-specific components (cards, avatars, badges)
+- Hooks for CRUD operations (TanStack Query, SWR)
 - Reusable across features, widgets, and pages
 
 **Can Import**: shared | **Cannot Import**: app, pages, widgets, features, other entities
@@ -89,10 +89,11 @@ shared     (lowest)   — Infrastructure code
 
 **Purpose**: Reusable infrastructure with no business logic.
 
+- **Divided directly into segments (no slices)** — `shared/ui/`, `shared/lib/`, `shared/api/`, `shared/config/`
 - API client and request utilities
-- Generic helpers (date formatting, classname merge, debounce)
-- Shared hooks (useDebounce, useLocalStorage)
-- Extended UI components wrapping a library
+- Generic helpers (date formatting, `cn()` classname merge, debounce)
+- Shared hooks (`useDebounce`, `useLocalStorage`, `useMediaQuery`)
+- Extended components wrapping a UI library (ShadCN, MUI, Ant Design)
 
 **Can Import**: — | **Cannot Import**: all other layers
 
@@ -102,11 +103,38 @@ shared     (lowest)   — Infrastructure code
 
 ## Cross-Entity Communication
 
-Entities cannot import each other. To combine entity data, compose in a higher layer:
+Entities cannot import each other directly. Two approaches:
+
+### 1. Compose in a higher layer (preferred)
 
 - **Entity** exports its own components and hooks via public API
 - **Widget/page/feature** imports from multiple entities and passes composed data down as props
 - Use IDs or shared types from `shared/` to reference across entity boundaries
+
+### 2. `@x` cross-imports (when composition is impractical)
+
+When one entity genuinely needs types or data from another entity, use the `@x` notation — a special cross-import boundary:
+
+```
+entities/
+├── user/
+│   ├── @x/
+│   │   └── customer.ts    # Exports specifically for the customer entity
+│   ├── model/
+│   ├── ui/
+│   └── index.ts
+└── customer/
+    ├── model/
+    │   └── use-customer.ts  # Can import from '@/entities/user/@x/customer'
+    ├── ui/
+    └── index.ts
+```
+
+**`@x` rules:**
+- Only between entities on the same layer
+- The exporting entity explicitly defines what is available via `@x/{consumer-name}.ts`
+- Keep `@x` exports minimal — only what the consumer truly needs
+- Prefer composition in a higher layer when possible; use `@x` as a last resort
 
 ---
 
@@ -144,3 +172,9 @@ App-level setup (providers, routing, global styles)?
                 Domain logic? → entities
                 User action? → features
 ```
+
+---
+
+## Deprecated: Processes Layer
+
+The original FSD spec included a `processes/` layer (between `pages/` and `app/`) for multi-page flows like checkout or onboarding. This layer is **deprecated** — use `features/` or `pages/` instead. Do not create a `processes/` layer in new projects.
