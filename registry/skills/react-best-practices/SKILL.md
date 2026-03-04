@@ -5,7 +5,7 @@ description: React performance optimization guidelines. This skill should be use
 
 # React Best Practices
 
-Comprehensive performance optimization guide for React applications. Contains 38 rules across 7 categories, prioritized by impact.
+Comprehensive performance optimization guide for React applications. Contains 37 rules across 7 categories, prioritized by impact.
 
 ## Rule Categories by Priority
 
@@ -24,11 +24,10 @@ Comprehensive performance optimization guide for React applications. Contains 38
 ### 1. Eliminating Waterfalls (CRITICAL)
 
 - `async-defer-await` - Move await into branches where actually used
-- `async-parallel` - Use Promise.all() for independent operations
+- `async-parallel` - Use Promise.all()/allSettled() for independent operations
 
 ### 2. Bundle Size Optimization (CRITICAL)
 
-- `bundle-barrel-imports` - Import directly, avoid barrel files
 - `bundle-dynamic-imports` - React.lazy() for heavy components
 - `bundle-defer-third-party` - Load analytics/logging on demand
 - `bundle-conditional` - Load modules only when feature is activated
