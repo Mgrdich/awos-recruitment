@@ -211,14 +211,14 @@ kotlin {
 }
 ```
 
-### Key compiler flags
+### Key compiler options
 
-| Flag | Purpose |
-|---|---|
-| `-Xjsr305=strict` | Treat JSR-305 annotations (`@Nullable`, `@NonNull`) as strict — essential for Java interop |
-| `-Xexplicit-api=strict` | Require explicit visibility and return types on public API — use for library modules |
-| `-progressive` | Enable latest language improvements that may change behavior |
-| `-opt-in=kotlin.RequiresOptIn` | Allow use of `@OptIn` annotation |
+| Option | DSL | Purpose |
+|---|---|---|
+| `-Xjsr305=strict` | `freeCompilerArgs.addAll("-Xjsr305=strict")` | Treat JSR-305 annotations (`@Nullable`, `@NonNull`) as strict — essential for Java interop |
+| Explicit API | `explicitApi()` | Require explicit visibility and return types on public API — use for library modules |
+| Progressive mode | `progressiveMode.set(true)` | Enable latest language improvements that may change behavior |
+| Opt-in | `optIn.add("kotlin.RequiresOptIn")` | Allow use of `@OptIn` annotation |
 
 ### Explicit API mode
 
