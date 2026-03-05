@@ -178,3 +178,5 @@ Use [ruff](https://github.com/astral-sh/ruff) for formatting and linting — it 
 ruff check --fix src
 ruff format src
 ```
+
+**Important:** Always read linting rules from the project's configuration (`pyproject.toml`, `ruff.toml`, or `.ruff.toml`) before applying or suggesting fixes. Projects define their own rule sets, line length, ignore lists, and per-file overrides — do not assume defaults or add rules that conflict with the existing config.
