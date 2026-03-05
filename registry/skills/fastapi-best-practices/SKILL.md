@@ -39,8 +39,27 @@ See `references/async-patterns.md` for decision matrix, threadpool caveats, and 
 
 ### Project Structure
 
-- Organize by **domain** (auth/, posts/), not by file type (routers/, models/)
-- Each domain: `router.py`, `schemas.py`, `models.py`, `service.py`, `dependencies.py`, `config.py`, `constants.py`, `exceptions.py`, `utils.py`
+Organize by **domain**, not by file type:
+
+```
+src/
+├── auth/                # Domain package
+│   ├── router.py        # Endpoints
+│   ├── schemas.py       # Pydantic models
+│   ├── models.py        # DB models
+│   ├── service.py       # Business logic
+│   ├── dependencies.py  # Route dependencies
+│   ├── config.py        # Env vars (BaseSettings)
+│   ├── constants.py     # Constants, error codes
+│   ├── exceptions.py    # Domain exceptions
+│   └── utils.py         # Helpers
+├── posts/               # Another domain
+│   └── ...
+├── config.py            # Global config
+├── database.py          # DB connection
+└── main.py              # App init
+```
+
 - Import across domains with explicit module names: `from src.auth import constants as auth_constants`
 
 See `references/project-conventions.md` for full layout, DB naming, Alembic, and linting.

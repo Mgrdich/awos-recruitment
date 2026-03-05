@@ -2,21 +2,83 @@
 
 ## Domain-Based Module Layout
 
-Each domain package under `src/` follows a standard file layout:
+Organize by **domain** (auth, posts, payments), not by file type (routers/, models/, services/). Each domain is a self-contained package with a standard set of modules.
 
-| File | Purpose |
+### Full project tree
+
+```
+fastapi-project/
+├── alembic/                     # Migration scripts
+├── src/
+│   ├── auth/                    # Auth domain
+│   │   ├── router.py            # API endpoints
+│   │   ├── schemas.py           # Pydantic request/response models
+│   │   ├── models.py            # Database (ORM) models
+│   │   ├── service.py           # Business logic
+│   │   ├── dependencies.py      # Route-level dependencies
+│   │   ├── config.py            # Domain env vars (BaseSettings)
+│   │   ├── constants.py         # Constants and error codes
+│   │   ├── exceptions.py        # Domain exceptions (e.g., InvalidCredentials)
+│   │   └── utils.py             # Non-business helpers
+│   ├── posts/                   # Posts domain
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   ├── models.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   ├── constants.py
+│   │   ├── exceptions.py
+│   │   └── utils.py
+│   ├── aws/                     # External service client
+│   │   ├── client.py            # SDK wrapper
+│   │   ├── schemas.py
+│   │   ├── config.py
+│   │   ├── constants.py
+│   │   ├── exceptions.py
+│   │   └── utils.py
+│   ├── config.py                # Global configuration
+│   ├── models.py                # Shared DB models
+│   ├── exceptions.py            # Global exception handlers
+│   ├── pagination.py            # Shared modules (pagination, etc.)
+│   ├── database.py              # DB engine & session setup
+│   └── main.py                  # FastAPI app initialization
+├── tests/
+│   ├── auth/                    # Tests mirror domain structure
+│   ├── posts/
+│   └── aws/
+├── templates/                   # Jinja2 templates (if needed)
+├── .env
+├── alembic.ini
+└── pyproject.toml
+```
+
+### Domain module reference
+
+| Module | Purpose | When to create |
+|---|---|---|
+| `router.py` | API endpoints — the core of each domain | Always |
+| `schemas.py` | Pydantic request/response models | Always |
+| `models.py` | Database (ORM) models | When domain has DB tables |
+| `service.py` | Business logic functions | When logic goes beyond simple CRUD |
+| `dependencies.py` | Route-level dependencies (validation, auth) | When routes need shared validation |
+| `config.py` | Domain-specific env vars via `BaseSettings` | When domain has its own config |
+| `constants.py` | Constants and error codes | Always |
+| `exceptions.py` | Domain-specific exceptions | Always |
+| `utils.py` | Non-business helpers (normalization, enrichment) | When needed |
+| `client.py` | External service SDK wrapper | For external service integrations |
+
+### Global vs domain modules
+
+Global modules at `src/` root handle cross-cutting concerns:
+
+| Module | Purpose |
 |---|---|
-| `router.py` | API endpoints — the core of each module |
-| `schemas.py` | Pydantic request/response models |
-| `models.py` | Database (ORM) models |
-| `service.py` | Business logic functions |
-| `dependencies.py` | Route-level dependencies |
-| `config.py` | Domain-specific env vars via `BaseSettings` |
-| `constants.py` | Constants and error codes |
-| `exceptions.py` | Domain-specific exceptions (e.g., `PostNotFound`) |
-| `utils.py` | Non-business helpers (response normalization, data enrichment) |
-
-Global modules live at the `src/` root level: `config.py`, `models.py`, `exceptions.py`, `database.py`, `main.py`.
+| `main.py` | App init, middleware, router mounting |
+| `config.py` | Global settings (DB URL, Redis, CORS, environment) |
+| `database.py` | Engine, session factory, base model |
+| `models.py` | Shared models (if any) |
+| `exceptions.py` | Global exception handlers, base exception classes |
+| `pagination.py` | Shared utilities used across domains |
 
 ### Cross-domain imports
 
@@ -27,6 +89,12 @@ from src.auth import constants as auth_constants
 from src.notifications import service as notification_service
 from src.posts.constants import ErrorCode as PostsErrorCode
 ```
+
+### When to create a new domain package
+
+- The feature has its own API endpoints → new domain
+- The feature is an external service integration (AWS, Stripe) → new domain with `client.py`
+- Shared utilities used across multiple domains → keep at `src/` root level, not in a domain
 
 ## Database Naming Conventions
 
