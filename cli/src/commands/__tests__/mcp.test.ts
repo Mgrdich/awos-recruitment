@@ -18,6 +18,10 @@ vi.mock("../../lib/download.js", () => ({
   downloadBundle: mockDownloadBundle,
 }));
 
+vi.mock("../../lib/server-url.js", () => ({
+  resolveServerUrl: () => "http://test-server:9999",
+}));
+
 // ---------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------
