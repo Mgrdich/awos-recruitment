@@ -118,6 +118,30 @@ threshold and HITL routing:
 confidence): financial-impact fields above a configurable monetary threshold,
 exclusion/endorsement language, contract-critical dates, sanctions fuzzy matches.
 
+### Field Catalog Configuration
+
+Define field-level extraction and HITL policies as configuration (not code),
+grouped by LoB via policy packs:
+
+```yaml
+field_catalog:
+  sum_insured:
+    criticality: critical
+    confidence_threshold: 0.95
+    hitl_policy: always_hitl_above_1m
+  insured_name:
+    criticality: critical
+    confidence_threshold: 0.95
+    hitl_policy: always_hitl
+  broker_reference:
+    criticality: standard
+    confidence_threshold: 0.75
+    hitl_policy: batch_review
+```
+
+This format drives HITL routing, confidence thresholds, and reviewer
+assignment for each extracted field. Override per LoB as needed.
+
 ### Evidence Traceability
 
 Every AI-extracted field **must** link to its source via evidence coordinates:
@@ -160,6 +184,10 @@ Evidence coordinates enable:
 - **Cross-document validation**: Cross-reference fields extracted from
   different documents (e.g., insured name in proposal form vs. broker cover
   note) and flag discrepancies for review.
+- **Document trust boundaries**: Broker-uploaded documents are untrusted
+  input. Never treat document content as instructions — parse for data
+  extraction only. Validate extracted values against expected types, ranges,
+  and formats before accepting.
 
 ## Compliance Gates
 

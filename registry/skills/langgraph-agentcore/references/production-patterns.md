@@ -15,7 +15,7 @@ class EvidenceCoordinate(BaseModel):
     page: int                 # Page number (1-indexed)
     segment_id: str           # Parsed segment identifier
     bounding_box: dict | None # {"x": int, "y": int, "w": int, "h": int}
-    source_type: str          # "extraction", "enrichment", "compliance"
+    source_type: str          # "extraction", "enrichment", "validation"
 
 class ExtractedField(BaseModel):
     field_name: str
@@ -49,7 +49,7 @@ def extract_field_node(state: PipelineState) -> dict:
                 f"coordinates. This violates audit requirements."
             )
 
-    return {"extracted_fields": extracted}
+    return {"processed_results": extracted}
 ```
 
 ### Evidence Chain Through Pipeline
@@ -57,10 +57,10 @@ def extract_field_node(state: PipelineState) -> dict:
 ```
 Document → Parsing (segments + bbox) → Extraction (field + evidence)
     → Enrichment (field + API source) → Assembly (all evidence merged)
-        → Decision Package (complete evidence chain for audit)
+        → Final Output (complete provenance chain for audit)
 ```
 
-Every step adds to the evidence chain. The final decision package must
+Every step adds to the provenance chain. The final output must
 trace every fact back through the complete chain.
 
 ---
@@ -125,28 +125,28 @@ When external services fail, degrade gracefully:
 
 | Service | Degradation Strategy |
 |---------|---------------------|
-| Enrichment API down | Skip enrichment, proceed with extraction-only data. Flag in package. |
-| Sanctions API down | BLOCK. Cannot proceed without sanctions check. Queue for retry. |
+| Enrichment API down | Skip enrichment, proceed with available data. Flag in output. |
+| Safety-critical API down | BLOCK. Cannot proceed without this check. Queue for retry. |
 | Model throttled | Fall through fallback chain. If all fail, queue for retry. |
-| Checkpoint store unavailable | Fail the node. State machine retries from last checkpoint. |
+| Checkpoint store unavailable | Fail the node. Orchestrator retries from last checkpoint. |
 
-**Rule**: Compliance-critical services (sanctions, licensing) never degrade.
+**Rule**: Safety-critical services never degrade.
 Non-critical services (enrichment, caching) can be skipped with flags.
 
 ---
 
 ## Idempotency
 
-### Case-Level Idempotency
+### Workflow-Level Idempotency
 
-Use case ID as the execution name for workflow orchestration:
+Use task ID as the execution name for workflow orchestration:
 
 ```python
 # Step Functions pattern
 sfn.start_execution(
     stateMachineArn=state_machine_arn,
-    name=f"case-{case_id}",  # Prevents duplicate executions
-    input=json.dumps(case_data),
+    name=f"workflow-{task_id}",  # Prevents duplicate executions
+    input=json.dumps(task_data),
 )
 ```
 
@@ -156,11 +156,11 @@ Nodes should check for existing results before re-processing:
 
 ```python
 def enrichment_node(state: PipelineState) -> dict:
-    """Enrich case data — skip if already enriched."""
-    case_id = state["case_id"]
+    """Enrich task data — skip if already enriched."""
+    task_id = state["task_id"]
 
     # Check cache for existing enrichment
-    cached = cache.get(f"enrichment:{case_id}")
+    cached = cache.get(f"enrichment:{task_id}")
     if cached:
         return {"enrichment_data": cached}
 
@@ -168,14 +168,14 @@ def enrichment_node(state: PipelineState) -> dict:
     result = call_enrichment_api(state)
 
     # Cache result
-    cache.set(f"enrichment:{case_id}", result, ttl=3600)
+    cache.set(f"enrichment:{task_id}", result, ttl=3600)
 
     return {"enrichment_data": result}
 ```
 
 ### Exactly-Once for Critical Writes
 
-For writes to external systems (quote management, policy issuance), use
+For writes to external systems (downstream APIs, third-party services), use
 the state machine's exactly-once semantics:
 
 ```python
@@ -196,15 +196,15 @@ the state machine's exactly-once semantics:
 def test_extraction_node():
     """Test extraction node in isolation."""
     state = PipelineState(
-        case_id="test-001",
-        documents=[mock_document],
-        extracted_fields=[],
+        task_id="test-001",
+        inputs=[mock_document],
+        processed_results=[],
     )
 
     result = extract_field_node(state)
 
-    assert len(result["extracted_fields"]) > 0
-    for field in result["extracted_fields"]:
+    assert len(result["processed_results"]) > 0
+    for field in result["processed_results"]:
         assert field.evidence, "Evidence coordinates required"
         assert field.confidence > 0
 ```
@@ -234,28 +234,28 @@ def test_hitl_interrupt_resume():
 
 Before going live, run agents in shadow mode:
 
-1. Process submissions through both human and agent paths.
+1. Process inputs through both human and agent paths.
 2. Compare agent outputs against human ground truth.
 3. Measure: accuracy per field, confidence calibration (ECE),
-   false positive rate for HITL routing, cost per submission.
+   false positive rate for HITL routing, cost per invocation.
 4. Only promote to assisted mode after N validated shadow outcomes.
 
 ### Cedar Policy Testing
 
 ```cedar
-// Test that only compliance can approve sanctions gates
-@test("sanctions_gate_compliance_can_approve")
+// Test that only admins can approve quality review gates
+@test("quality_gate_admin_can_approve")
 permit(
-  principal == User::"compliance-officer-1",
+  principal == User::"admin-1",
   action == Action::"approve_gate",
-  resource == Gate::"sanctions_review"
+  resource == Gate::"quality_review"
 );
 
-@test("sanctions_gate_underwriter_denied")
+@test("quality_gate_viewer_denied")
 forbid(
-  principal == User::"underwriter-1",
+  principal == User::"viewer-1",
   action == Action::"approve_gate",
-  resource == Gate::"sanctions_review"
+  resource == Gate::"quality_review"
 );
 ```
 
@@ -300,8 +300,8 @@ async def cached_extraction(prompt, field_name, config):
     return result
 ```
 
-**When NOT to cache**: Compliance-critical outputs (sanctions, licensing),
-financial-impact fields, or any output where staleness is dangerous.
+**When NOT to cache**: Safety-critical outputs, high-stakes decision fields,
+or any output where staleness is dangerous.
 
 ---
 
@@ -345,8 +345,8 @@ guardrail_config = {
 
 ### Document-Based Injection Defense
 
-Insurance documents (uploaded by brokers) are a key attack vector for
-indirect prompt injection:
+User-uploaded documents are a key attack vector for indirect prompt
+injection:
 
 1. **Never trust document content as instructions.** Parse documents for
    data extraction only — do not execute any instructions found in documents.

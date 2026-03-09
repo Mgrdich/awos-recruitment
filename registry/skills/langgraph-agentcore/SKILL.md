@@ -9,7 +9,7 @@ description: >-
   Models and Guardrails, MCP tool integration via AgentCore Gateway, and
   observability with LangSmith and CloudWatch. Use when building agentic AI
   workflows with LangGraph, deploying agents on AWS Bedrock AgentCore, or
-  implementing policy-driven HITL systems.
+  implementing interrupt-based HITL workflows.
 ---
 
 # LangGraph + AgentCore Production Patterns
@@ -28,37 +28,38 @@ from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 
 class PipelineState(TypedDict):
-    case_id: str
-    documents: list[dict]
-    extracted_fields: Annotated[list[dict], add]  # reducer for accumulation
+    task_id: str
+    inputs: list[dict]
+    processed_results: Annotated[list[dict], add]  # reducer for accumulation
     confidence_scores: dict[str, float]
-    hitl_decisions: list[dict]
-    compliance_status: str
+    review_decisions: list[dict]
+    status: str
     current_stage: str
 
 graph = StateGraph(PipelineState)
-graph.add_node("extract", extract_node)
-graph.add_node("enrich", enrich_node)
-graph.add_node("compliance", compliance_node)
-graph.add_node("assemble", assemble_node)
+graph.add_node("parse", parse_node)
+graph.add_node("transform", transform_node)
+graph.add_node("validate", validate_node)
+graph.add_node("output", output_node)
 
-graph.add_edge(START, "extract")
-graph.add_edge("extract", "enrich")
-graph.add_edge("enrich", "compliance")
-graph.add_edge("compliance", "assemble")
-graph.add_edge("assemble", END)
+graph.add_edge(START, "parse")
+graph.add_edge("parse", "transform")
+graph.add_edge("transform", "validate")
+graph.add_edge("validate", "output")
+graph.add_edge("output", END)
 ```
 
 ### Node Design Rules
 
-1. **Single responsibility** — each node does one thing. "Extract core facts"
-   and "extract locations" are separate nodes, not one mega-node.
+1. **Single responsibility** — each node does one thing. "Parse headers"
+   and "parse body" are separate nodes, not one mega-node.
 2. **Explicit inputs and outputs** — nodes read specific state keys and write
    specific state keys. Document this in the node docstring.
 3. **Idempotent** — nodes must produce the same output given the same state.
    This enables replay via `get_state_history()`.
-4. **Evidence on every output** — every AI-produced value must include evidence
-   coordinates linking to source data (document ID, page, segment, bounding box).
+4. **Provenance on every output** — every AI-produced value should include
+   references linking to source data (document ID, page, coordinates). This
+   enables replay, debugging, and auditability.
 
 ### Conditional Routing
 
@@ -70,17 +71,17 @@ def route_by_confidence(state: PipelineState) -> str:
     if confidence >= 0.85:
         return "auto_proceed"
     elif confidence >= 0.60:
-        return "junior_review"
+        return "human_review"
     else:
-        return "senior_review"
+        return "escalated_review"
 
 graph.add_conditional_edges(
     "assess_confidence",
     route_by_confidence,
     {
         "auto_proceed": "next_stage",
-        "junior_review": "hitl_junior",
-        "senior_review": "hitl_senior",
+        "human_review": "hitl_standard",
+        "escalated_review": "hitl_senior",
     }
 )
 ```
@@ -93,14 +94,14 @@ Use `Send` for parallel node execution:
 from langgraph.constants import Send
 
 def fan_out_enrichment(state: PipelineState) -> list[Send]:
-    """Run enrichment sources in parallel."""
+    """Run data sources in parallel."""
     return [
-        Send("company_registry", state),
-        Send("credit_check", state),
-        Send("internal_lookup", state),
+        Send("external_api_lookup", state),
+        Send("database_query", state),
+        Send("cache_check", state),
     ]
 
-graph.add_conditional_edges("extraction_done", fan_out_enrichment)
+graph.add_conditional_edges("processing_done", fan_out_enrichment)
 # All parallel nodes write to state; use a reducer to merge results
 ```
 
@@ -114,22 +115,22 @@ state via checkpoint, and resumes when a human provides input.
 ```python
 from langgraph.types import interrupt, Command
 
-def extraction_review_node(state: PipelineState) -> dict:
-    """Pause for human review of extracted fields."""
-    extracted = state["extracted_fields"]
-    low_confidence = [f for f in extracted if f["confidence"] < 0.85]
+def review_node(state: PipelineState) -> dict:
+    """Pause for human review of low-confidence results."""
+    results = state["processed_results"]
+    low_confidence = [r for r in results if r["confidence"] < 0.85]
 
     if low_confidence:
         # Pause execution — state is checkpointed
         human_input = interrupt({
-            "type": "extraction_review",
+            "type": "field_review",
             "fields_to_review": low_confidence,
-            "evidence": [f["evidence"] for f in low_confidence],
-            "instructions": "Review flagged fields against source documents."
+            "references": [r["source_ref"] for r in low_confidence],
+            "instructions": "Review flagged fields against source data."
         })
 
         # Execution resumes here with human_input
-        return {"hitl_decisions": [human_input]}
+        return {"review_decisions": [human_input]}
 
     return {}  # No review needed, continue
 ```
@@ -147,7 +148,7 @@ result = graph.invoke(
         "action": "confirmed",
         "rationale_code": "ai_correct"
     }),
-    config={"configurable": {"thread_id": case_id}}
+    config={"configurable": {"thread_id": task_id}}
 )
 ```
 
@@ -155,14 +156,14 @@ result = graph.invoke(
 
 | Pattern | Implementation | Use Case |
 |---------|---------------|----------|
-| **Async** | `interrupt()` with timeout. External system sends `Command(resume=...)` when human completes task. | Most extraction reviews, disambiguation |
-| **Blocking** | `interrupt()` with no timeout. Graph does not proceed on any branch until cleared. | Compliance gates, sanctions review |
-| **Deferred** | Node proceeds with provisional value. Separate batch review process validates later. | Low-risk fields, audit sampling |
+| **Async** | `interrupt()` with timeout. External system sends `Command(resume=...)` when human completes task. | Data quality reviews, ambiguity resolution |
+| **Blocking** | `interrupt()` with no timeout. Graph does not proceed on any branch until cleared. | Approval workflows, safety-critical gates |
+| **Deferred** | Node proceeds with provisional value. Separate batch review process validates later. | Low-priority validations, batch auditing |
 
 ## Checkpointing for Long-Running Workflows
 
 AgentCore supports sessions up to 8 hours. For workflows spanning days
-(e.g., waiting for broker response), use checkpoint persistence.
+(e.g., waiting for external input), use checkpoint persistence.
 
 ### Setup
 
@@ -174,8 +175,8 @@ checkpointer = PostgresSaver.from_conn_string(db_url)
 
 app = graph.compile(checkpointer=checkpointer)
 
-# Each case gets its own thread
-config = {"configurable": {"thread_id": f"case-{case_id}"}}
+# Each workflow gets its own thread
+config = {"configurable": {"thread_id": f"workflow-{task_id}"}}
 result = app.invoke(initial_state, config)
 ```
 
@@ -209,7 +210,7 @@ Use different model tiers based on task complexity to optimise cost:
 |------|--------|---------|------|
 | **Fast** | Claude Haiku, Nova Micro | Classification, triage, simple extraction | Lowest |
 | **Balanced** | Claude Sonnet, Nova Lite | Standard extraction, enrichment, summaries | Medium |
-| **Premium** | Claude Opus, Nova Pro | Complex reasoning, exclusion language, decision packages | Highest |
+| **Premium** | Claude Opus, Nova Pro | Complex reasoning, multi-step analysis, nuanced judgment | Highest |
 
 ### Implementation
 
@@ -244,8 +245,8 @@ When a model is unavailable (throttled, outage), fall through:
 4. Alternative provider (e.g., direct API)
 5. Degrade to cheaper tier (with data classification check)
 
-**Critical rule**: Never fall back to a less capable tier for compliance-critical
-or financial-impact tasks without explicit configuration allowing it.
+**Critical rule**: Never fall back to a less capable tier for high-stakes
+or safety-critical tasks without explicit configuration allowing it.
 
 ### Cost Targeting
 
@@ -253,15 +254,15 @@ Assign model tiers per pipeline node in configuration, not code:
 
 ```yaml
 pipeline_nodes:
-  classify_email:
+  classify_input:
     model_tier: fast
-    description: "Email classification — low complexity"
-  extract_core_facts:
+    description: "Input classification — low complexity"
+  extract_fields:
     model_tier: balanced
-    description: "Standard field extraction"
-  analyse_exclusions:
+    description: "Standard field extraction from documents"
+  complex_analysis:
     model_tier: premium
-    description: "Exclusion language requires complex reasoning"
+    description: "Multi-step reasoning requiring high accuracy"
 ```
 
 ## Confidence Calibration Implementation
@@ -309,15 +310,15 @@ Thresholds are configuration, not code:
 
 ```yaml
 field_catalog:
-  sum_insured:
+  primary_identifier:
     criticality: critical
     confidence_threshold: 0.95
-    hitl_policy: always_hitl_above_1m
-  insured_name:
-    criticality: critical
-    confidence_threshold: 0.95
-    hitl_policy: always_hitl
-  broker_reference:
+    hitl_policy: always_review
+  description_field:
+    criticality: important
+    confidence_threshold: 0.85
+    hitl_policy: review_if_low
+  reference_code:
     criticality: standard
     confidence_threshold: 0.75
     hitl_policy: batch_review
@@ -342,22 +343,22 @@ Agent Node → requests tool → AgentCore Gateway → Cedar Policy Engine
 ### Key Policy Patterns
 
 ```cedar
-// Agent can only invoke tools for cases in its assigned LoB
+// Agent can only invoke tools within its assigned scope
 permit(
   principal,
   action == Action::"invoke_tool",
   resource
 ) when {
-  resource.lob in principal.lob_access
+  resource.scope in principal.allowed_scopes
 };
 
-// Block writes when compliance is not cleared
+// Block writes when approval status is not cleared
 forbid(
   principal,
-  action == Action::"write_to_quote_system",
+  action == Action::"write",
   resource
 ) when {
-  context.compliance_status != "cleared"
+  context.approval_status != "approved"
 };
 
 // Enforce spend caps on external API calls
@@ -389,7 +390,7 @@ Fast checks ($0.01) → Moderate checks ($0.10) → Expensive checks ($1-5)
    70% decline            20% decline              10% decline
 ```
 
-This dramatically reduces average cost-per-submission.
+This dramatically reduces average cost-per-invocation.
 
 ### Cost Tracking Per Node
 
@@ -418,7 +419,7 @@ Instrument every agent with LangSmith for full prompt/response capture:
 ```python
 import os
 os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_PROJECT"] = "underwriting-pipeline"
+os.environ["LANGSMITH_PROJECT"] = "my-agent-pipeline"
 
 # All LangGraph executions are automatically traced
 # Each node execution becomes a span with:
@@ -438,7 +439,7 @@ os.environ["LANGSMITH_PROJECT"] = "underwriting-pipeline"
 | HITL rate per gate | Application metrics | Automation effectiveness |
 | Confidence calibration (ECE) | Override records | Model quality |
 | Fallback rate per model | Model router | Availability monitoring |
-| Cost per submission | Aggregated | Business metric |
+| Cost per workflow invocation | Aggregated | Business metric |
 
 ### AgentCore Observability
 

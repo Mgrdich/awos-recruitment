@@ -40,7 +40,7 @@ if __name__ == "__main__":
 ### Session Management
 
 ```python
-# Each case gets an isolated session
+# Each workflow gets an isolated session
 # Sessions persist state across multiple invocations within the 8-hour window
 
 # For multi-day workflows:
@@ -88,16 +88,16 @@ gateway = agentcore.Gateway(self, "AgentGateway",
     authorizer=cognito_authorizer,
 )
 
-gateway.add_target("quote-system",
+gateway.add_target("data-store",
     target_type="lambda",
-    function=quote_system_lambda,
-    description="Create and manage quotes in the quote management system",
+    function=data_store_lambda,
+    description="Read and write records in the primary data store",
 )
 
-gateway.add_target("sanctions-check",
+gateway.add_target("notification-service",
     target_type="lambda",
-    function=sanctions_lambda,
-    description="Screen entities against sanctions watchlists",
+    function=notification_lambda,
+    description="Send notifications via email or messaging channels",
 )
 ```
 
@@ -110,13 +110,13 @@ from langchain_aws import ChatBedrockConverse
 # The agent invokes them through the Gateway endpoint
 # Cedar policies are evaluated on every invocation
 
-def extraction_node(state):
+def processing_node(state):
     model = ChatBedrockConverse(
         model_id="anthropic.claude-sonnet",
         # Tools bound via Gateway MCP endpoint
     )
     result = model.invoke(state["prompt"], tools=gateway_tools)
-    return {"extracted_fields": result}
+    return {"processed_results": result}
 ```
 
 ---
@@ -160,12 +160,12 @@ gateway.attach_policy_engine(policy_engine)
 AgentCore Policy supports NL-to-Cedar conversion:
 
 ```
-Natural language: "Only the triage agent can classify emails"
+Natural language: "Only the intake agent can invoke the document parser"
 Generated Cedar:
   permit(
-    principal == Agent::"triage-agent",
+    principal == Agent::"intake-agent",
     action == Action::"invoke",
-    resource == Tool::"email-classifier"
+    resource == Tool::"document-parser"
   );
 ```
 
@@ -199,23 +199,23 @@ Memory provides persistent context across agent interactions.
 ```python
 from bedrock_agentcore.memory import AgentCoreMemory
 
-memory = AgentCoreMemory(agent_id="triage-agent")
+memory = AgentCoreMemory(agent_id="processing-agent")
 
-def triage_node(state):
-    # Retrieve relevant past cases for this broker
-    similar_cases = memory.search(
-        query=f"submissions from {state['broker_name']}",
+def lookup_node(state):
+    # Retrieve relevant past interactions for this source
+    similar_items = memory.search(
+        query=f"requests from {state['source_name']}",
         limit=5
     )
 
-    # Use historical context to improve classification
+    # Use historical context to improve processing
     # ...
 
-    # Store this case's outcome for future reference
+    # Store this interaction's outcome for future reference
     memory.store({
-        "case_id": state["case_id"],
-        "broker": state["broker_name"],
-        "classification": state["classification"],
+        "task_id": state["task_id"],
+        "source": state["source_name"],
+        "result_type": state["result_type"],
         "confidence": state["confidence"],
     })
 ```
@@ -260,12 +260,12 @@ infrastructure/
 │   └── tests/
 │       └── policy-tests.cedar    # Cedar policy test cases
 └── agents/
-    ├── triage/
+    ├── intake/
     │   ├── agent.py              # LangGraph graph definition
     │   ├── nodes/                # Individual node implementations
     │   ├── prompts/              # Prompt templates
     │   └── tests/                # Agent tests
-    └── extraction/
+    └── processing/
         ├── agent.py
         ├── nodes/
         ├── prompts/
@@ -363,5 +363,5 @@ response = bedrock.invoke_model(
 Bedrock Guardrails includes automated reasoning that validates model
 responses against logical rules with up to 99% accuracy. Use for:
 - Verifying extracted values against known constraints
-- Checking that compliance decisions are logically consistent
-- Ensuring financial calculations are correct
+- Checking that decisions are logically consistent
+- Ensuring numerical calculations are correct

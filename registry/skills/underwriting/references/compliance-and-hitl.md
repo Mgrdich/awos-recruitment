@@ -93,7 +93,42 @@ forbid(
 ) when {
   context.kill_switch_active == true
 };
+
+// Agent can only invoke tools for cases in its assigned LoB
+permit(
+  principal,
+  action == Action::"invoke_tool",
+  resource
+) when {
+  resource.lob in principal.lob_access
+};
+
+// Block writes to quote system when compliance is not cleared
+forbid(
+  principal,
+  action == Action::"write_to_quote_system",
+  resource
+) when {
+  context.compliance_status != "cleared"
+};
 ```
+
+### Service Degradation
+
+Not all external services can degrade gracefully. Compliance-critical
+services must block — the pipeline cannot proceed without them.
+
+| Service | Degradation Strategy |
+|---------|---------------------|
+| Enrichment API down | Skip enrichment, proceed with extraction-only data. Flag in decision package. |
+| Sanctions API down | BLOCK. Cannot proceed without sanctions check. Queue for retry. |
+| Licensing API down | BLOCK. Cannot verify licensing status. Queue for retry. |
+| Credit check API down | Skip, proceed with available data. Flag as incomplete. |
+| Model throttled | Fall through fallback chain. If all fail, queue for retry. |
+
+**Rule**: Compliance-critical services (sanctions, licensing, clearance)
+never degrade. Non-critical services (enrichment, credit checks) can be
+skipped with flags in the decision package.
 
 ---
 
